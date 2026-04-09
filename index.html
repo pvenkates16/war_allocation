@@ -218,11 +218,17 @@
    }
 
    .slider-ticks {
-     display: flex;
-     justify-content: space-between;
+     position: relative;
+     height: 14px;
      font-size: 0.7rem;
      color: var(--muted);
      margin-top: 4px;
+   }
+
+   .slider-ticks span {
+     position: absolute;
+     white-space: nowrap;
+     transform: translateX(-50%);
    }
 
    .alloc-bars {
@@ -441,13 +447,7 @@
          <div class="slider-value" id="duration-value">18 months</div>
        </div>
        <input type="range" id="duration-slider" min="2" max="120" step="1" value="18" />
-       <div class="slider-ticks">
-         <span>2 mo</span>
-         <span>2.5 yr</span>
-         <span>5 yr</span>
-         <span>7.5 yr</span>
-         <span>10 yr</span>
-       </div>
+       <div class="slider-ticks" id="duration-ticks"></div>
      </div>
 
      <div class="slider-block">
@@ -459,13 +459,7 @@
          <div class="slider-value" id="brent-value">$110</div>
        </div>
        <input type="range" id="brent-slider" min="60" max="200" step="5" value="110" />
-       <div class="slider-ticks">
-         <span>$60</span>
-         <span>$95</span>
-         <span>$130</span>
-         <span>$165</span>
-         <span>$200</span>
-       </div>
+       <div class="slider-ticks" id="brent-ticks"></div>
      </div>
 
      <div class="slider-block">
@@ -477,13 +471,7 @@
          <div class="slider-value" id="choke-value">40%</div>
        </div>
        <input type="range" id="choke-slider" min="0" max="100" step="5" value="40" />
-       <div class="slider-ticks">
-         <span>None</span>
-         <span>Minor</span>
-         <span>Moderate</span>
-         <span>Severe</span>
-         <span>Closed</span>
-       </div>
+       <div class="slider-ticks" id="choke-ticks"></div>
      </div>
 
      <div class="slider-block">
@@ -495,13 +483,7 @@
          <div class="slider-value" id="intensity-value">25%</div>
        </div>
        <input type="range" id="intensity-slider" min="0" max="100" step="5" value="25" />
-       <div class="slider-ticks">
-         <span>Cold</span>
-         <span>Proxy</span>
-         <span>Regional</span>
-         <span>Multi‑front</span>
-         <span>Total</span>
-       </div>
+       <div class="slider-ticks" id="intensity-ticks"></div>
      </div>
 
      <div class="slider-block">
@@ -513,13 +495,7 @@
          <div class="slider-value" id="capex-value">10%</div>
        </div>
        <input type="range" id="capex-slider" min="0" max="25" step="1" value="10" />
-       <div class="slider-ticks">
-         <span>0%</span>
-         <span>6%</span>
-         <span>12%</span>
-         <span>19%</span>
-         <span>25%</span>
-       </div>
+       <div class="slider-ticks" id="capex-ticks"></div>
      </div>
 
      <div class="slider-block">
@@ -531,13 +507,7 @@
          <div class="slider-value" id="p2025-value">50%</div>
        </div>
        <input type="range" id="p2025-slider" min="0" max="100" step="5" value="50" />
-       <div class="slider-ticks">
-         <span>0%</span>
-         <span>25%</span>
-         <span>50%</span>
-         <span>75%</span>
-         <span>100%</span>
-       </div>
+       <div class="slider-ticks" id="p2025-ticks"></div>
      </div>
 
      <div class="slider-block">
@@ -549,13 +519,7 @@
          <div class="slider-value" id="transmission-value">40%</div>
        </div>
        <input type="range" id="transmission-slider" min="0" max="100" step="5" value="40" />
-       <div class="slider-ticks">
-         <span>None</span>
-         <span>Low</span>
-         <span>Moderate</span>
-         <span>High</span>
-         <span>Systemic</span>
-       </div>
+       <div class="slider-ticks" id="transmission-ticks"></div>
      </div>
 
      <div class="alloc-bars">
@@ -898,10 +862,11 @@
    }
 
    function chokeRegime(c) {
-     if (c < 15) return "None · normal shipping";
-     if (c < 45) return "Moderate · sporadic shipping incidents";
-     if (c < 75) return "Severe · partial chokepoint disruption";
-     return "Critical · major chokepoint closed";
+     if (c < 20) return "None · normal shipping";
+     if (c < 40) return "Minor · sporadic incidents";
+     if (c < 60) return "Moderate · partial disruption";
+     if (c < 80) return "Severe · major lanes compromised";
+     return "Closed · chokepoint shut";
    }
 
    function capexRegime(c) {
@@ -1009,6 +974,78 @@
      }).join("");
      document.getElementById("contrib-body").innerHTML = html;
    }
+
+   // ---------- TICK POSITIONING ----------
+   // Labels are placed at their exact value on the track, accounting for the
+   // 11px thumb radius inset (thumb centers don't reach 0% or 100% of track).
+   // First and last labels get their transform adjusted so they don't overflow.
+   const THUMB_R = 11; // px, matches slider-thumb width/2
+   function buildTicks(containerId, min, max, ticks) {
+     const c = document.getElementById(containerId);
+     if (!c) return;
+     c.innerHTML = "";
+     ticks.forEach((t, i) => {
+       const frac = (t.value - min) / (max - min);
+       const span = document.createElement("span");
+       span.textContent = t.label;
+       // Position: thumb radius inset on both sides, value-proportional in between
+       span.style.left = `calc(${THUMB_R}px + ${frac} * (100% - ${2 * THUMB_R}px))`;
+       // Prevent edge labels from overflowing the container
+       if (i === 0) span.style.transform = "translateX(0)";
+       else if (i === ticks.length - 1) span.style.transform = "translateX(-100%)";
+       c.appendChild(span);
+     });
+   }
+
+   buildTicks("duration-ticks", 2, 120, [
+     { value: 2,   label: "2 mo"  },
+     { value: 30,  label: "2.5 yr"},
+     { value: 60,  label: "5 yr"  },
+     { value: 90,  label: "7.5 yr"},
+     { value: 120, label: "10 yr" }
+   ]);
+   buildTicks("brent-ticks", 60, 200, [
+     { value: 60,  label: "$60"  },
+     { value: 95,  label: "$95"  },
+     { value: 130, label: "$130" },
+     { value: 165, label: "$165" },
+     { value: 200, label: "$200" }
+   ]);
+   buildTicks("choke-ticks", 0, 100, [
+     { value: 0,   label: "None"     },
+     { value: 25,  label: "Minor"    },
+     { value: 50,  label: "Moderate" },
+     { value: 75,  label: "Severe"   },
+     { value: 100, label: "Closed"   }
+   ]);
+   buildTicks("intensity-ticks", 0, 100, [
+     { value: 0,   label: "Cold"        },
+     { value: 25,  label: "Proxy"       },
+     { value: 50,  label: "Regional"    },
+     { value: 75,  label: "Multi‑front" },
+     { value: 100, label: "Total"       }
+   ]);
+   buildTicks("capex-ticks", 0, 25, [
+     { value: 0,  label: "0%"  },
+     { value: 6,  label: "6%"  },
+     { value: 12, label: "12%" },
+     { value: 19, label: "19%" },
+     { value: 25, label: "25%" }
+   ]);
+   buildTicks("p2025-ticks", 0, 100, [
+     { value: 0,   label: "0%"   },
+     { value: 25,  label: "25%"  },
+     { value: 50,  label: "50%"  },
+     { value: 75,  label: "75%"  },
+     { value: 100, label: "100%" }
+   ]);
+   buildTicks("transmission-ticks", 0, 100, [
+     { value: 0,   label: "None"     },
+     { value: 25,  label: "Low"      },
+     { value: 50,  label: "Moderate" },
+     { value: 75,  label: "High"     },
+     { value: 100, label: "Systemic" }
+   ]);
 
    Object.values(sliders).forEach(s => {
      s.addEventListener("input", update);
